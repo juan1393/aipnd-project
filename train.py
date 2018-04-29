@@ -37,14 +37,14 @@ def get_data(data_dir):
     valid_data = datasets.ImageFolder(valid_dir, transform=valid_transforms)
     test_data = datasets.ImageFolder(test_dir, transform=test_transforms)
 
-    trainloader = torch.utils.data.DataLoader(train_data, batch_size=64, shuffle=True)
-    validloader = torch.utils.data.DataLoader(valid_data, batch_size=64)
-    testloader = torch.utils.data.DataLoader(test_data, batch_size=64)
+    trainloader = torch.utils.data.DataLoader(train_data, batch_size=32, shuffle=True)
+    validloader = torch.utils.data.DataLoader(valid_data, batch_size=32)
+    testloader = torch.utils.data.DataLoader(test_data, batch_size=32)
 
     return trainloader, validloader, testloader
 
 
-def build_model(architecture="densenet121", hidden_units=512):
+def build_model(architecture, hidden_units):
     print("Building model...")
 
     if architecture not in ACCEPTED_ARCHITECTURES:
@@ -68,8 +68,8 @@ def build_model(architecture="densenet121", hidden_units=512):
     return model
 
 
-def train_model(model, trainloader, validloader, hidden_units, arch, gpu=False,
-                lr=0.001, epochs=2, save_path="flower102_checkpoint.pth"):
+def train_model(model, trainloader, validloader, hidden_units, arch, gpu,
+                lr, epochs, save_path):
     print("Training model...")
 
     loss_fn = nn.NLLLoss()
@@ -80,7 +80,7 @@ def train_model(model, trainloader, validloader, hidden_units, arch, gpu=False,
 
     steps = 0
     running_loss = 0
-    print_every = 5
+    print_every = 2
 
     for e in range(epochs):
         for images, labels in iter(trainloader):
@@ -149,26 +149,26 @@ def save_model(model, trainloader, epochs, optimizer, path, lr, hidden_units, ar
                   'input_size': [3, 224, 224],
                   'batch_size': trainloader.batch_size,
                   'state_dict': model.state_dict(),
-                  'class_to_idx': model.class_to_idx,
+                  'class_to_idx': trainloader.dataset.class_to_idx,
                   'output_size': 102,
                   'lr': lr,
                   'hidden_units': hidden_units,
                   'arch': arch,
-                  'epoch': model.epochs}
+                  'epoch': epochs}
 
     torch.save(checkpoint, path)
 
 
 def main():
     parser = argparse.ArgumentParser(description='Predict flower types')
-    parser.add_argument('--gpu', type=bool, default=False, help='Using GPU or not')
+    parser.add_argument('--gpu', action='store_true', help='Using GPU or not')
     parser.add_argument('data_dir', type=str, default='flowers', help='Path to images')
     parser.add_argument('--arch', type=str, default='densenet121', help='Architectures available -> densenet121, vgg13')
-    parser.add_argument('--epochs', type=int, default=2, help='Epochs')
+    parser.add_argument('--epochs', type=int, default=3, help='Epochs')
     parser.add_argument('--save_dir', type=str, default='flower102_checkpoint.pth',
                         help='Path where model will be saved')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
-    parser.add_argument('--hidden_units', type=int, default='500', help='Hidden units')
+    parser.add_argument('--hidden_units', type=int, default=500, help='Hidden units')
     args = parser.parse_args()
 
     trainloader, validloader, testloader = get_data(args.data_dir)

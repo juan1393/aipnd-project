@@ -9,8 +9,11 @@ from PIL import Image
 import numpy as np
 
 
-def load_checkpoint(path, hidden_units, arch):
+def load_checkpoint(path):
     checkpoint = torch.load(path)
+
+    arch = checkpoint['arch']
+    hidden_units = checkpoint['hidden_units']
 
     if arch == "vgg13":
         model = models.vgg13()
@@ -26,9 +29,10 @@ def load_checkpoint(path, hidden_units, arch):
         ]))
 
     model.classifier = classifier
+
     model.load_state_dict(checkpoint['state_dict'])
     class_to_idx = checkpoint['class_to_idx']
-    idx_to_class = {v: k for k, v in class_to_idx.items()}
+    idx_to_class = {i: k for k, i in class_to_idx.items()}
     return model, class_to_idx, idx_to_class
 
 
@@ -64,7 +68,7 @@ def predict(image_path, model, idx_to_class, cat_to_name, topk, gpu):
         inputs = Variable(image)
 
     output = model.forward(inputs)
-    ps = torch.exp(output).data.numpy()[0]
+    ps = torch.exp(output).data.cpu().numpy()[0]
 
     topk_index = np.argsort(ps)[-topk:][::-1]
     topk_class = [idx_to_class[x] for x in topk_index]
@@ -81,23 +85,22 @@ def label_mapping(cat_to_name):
 
 def main():
     parser = argparse.ArgumentParser(description='Predict flower types')
-    parser.add_argument('--gpu', type=bool, default=False, help='Use GPU or not')
-    parser.add_argument('--input', type=str, help='Path to image that will be predicted', required=True)
-    parser.add_argument('--checkpoint', type=str, help='Path to training checkpoint', required=True)
+    parser.add_argument('--gpu', action='store_true', help='Using GPU or not')
+    parser.add_argument('input', type=str, help='Path to image that will be predicted')
+    parser.add_argument('checkpoint', type=str, help='Path to training checkpoint')
     parser.add_argument('--category_names', type=str, default='cat_to_name.json',
                         help='Path to category to flower name mapping json')
-    parser.add_argument('--topk', type=int, default=5, help='Top K probabilities')
+    parser.add_argument('--topk', type=int, default=5, help='Top k probabilities')
 
     args = parser.parse_args()
 
-    cat_to_name = label_mapping(args.cat_to_name)
+    cat_to_name = label_mapping(args.category_names)
 
-    model, class_to_idx, idx_to_class = load_checkpoint(args)
-    topk_prob, named_topk_class = predict(args.image_path, model, idx_to_class,
-                                          cat_to_name, args.topk)
+    model, class_to_idx, idx_to_class = load_checkpoint(args.checkpoint)
+    topk_prob, named_topk_class = predict(args.input, model, idx_to_class,
+                                          cat_to_name, args.topk, args.gpu)
 
-    print('Classes: ', named_topk_class)
-    print('Probability: ', topk_prob)
+    print(dict(zip(named_topk_class, topk_prob)))
 
 
 if __name__ == "__main__":
